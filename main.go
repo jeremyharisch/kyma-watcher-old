@@ -28,7 +28,26 @@ func main() {
 		currentEvent string
 	)
 
+	namespace = "default"
+
 	useKubeconfig := flag.Bool("kubeconfig", false, "Use exported kubeconfig, when running inlocal mode")
+	clientset := createClientset(useKubeconfig)
+
+	mutex = &sync.Mutex{}
+	go watchForChanges(clientset, namespace, &currentEvent, mutex)
+
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		mutex.Lock()
+		body := []byte(fmt.Sprintf(`{"Current event: %s""}`, currentEvent))
+		w.WriteHeader(http.StatusOK)
+		w.Write(body)
+		mutex.Unlock()
+	})
+	fmt.Printf("Listening on port 8080\n")
+	http.ListenAndServe(":8080", nil)
+}
+
+func createClientset(useKubeconfig *bool) *kubernetes.Clientset {
 	var clientCfg *rest.Config
 	var err error
 	if *useKubeconfig {
@@ -55,22 +74,8 @@ func main() {
 	if err != nil {
 		panic("Unable to create our clientset")
 	}
-
-	mutex = &sync.Mutex{}
-	namespace = "default"
-	go watchForChanges(clientset, namespace, &currentEvent, mutex)
-
-	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
-		mutex.Lock()
-		body := []byte(fmt.Sprintf(`{"Current event: %s""}`, currentEvent))
-		w.WriteHeader(http.StatusOK)
-		w.Write(body)
-		mutex.Unlock()
-	})
-	fmt.Printf("Listening on port 8080\n")
-	http.ListenAndServe(":8080", nil)
+	return clientset
 }
-
 func watchForChanges(clientset *kubernetes.Clientset, namespace string, currentEvent *string, mutex *sync.Mutex) {
 	for {
 		watcher, err := clientset.CoreV1().ConfigMaps(namespace).Watch(
