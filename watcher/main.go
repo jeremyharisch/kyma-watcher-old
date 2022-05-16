@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	main2 "github.com/jeremyharisch/kyma-watcher/watcher"
 	"net/http"
 	"sync"
 )
@@ -21,10 +22,10 @@ func main() {
 	// Check flag to see if application runs in in-cluster or local mode + create clientset
 	useKubeconfig := flag.Bool("kubeconfig", false, "Use exported kubeconfig, when running inlocal mode")
 	flag.Parse()
-	clientset := createClientset(useKubeconfig)
+	clientset := main2.createClientset(useKubeconfig)
 
 	// Trigger main watch mechanism
-	go watchForChanges(clientset, namespace, &currentEvent, mutex)
+	go main2.watchForChanges(clientset, namespace, &currentEvent, mutex)
 
 	// Handle endpoints
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
