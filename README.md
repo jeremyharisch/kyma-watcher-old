@@ -1,18 +1,17 @@
-> **NOTE:** It is a general template that can be used for a project README.md, example README.md, or any other README.md type in all Kyma repositories in the Kyma organization. Not all the sections are mandatory. Use only those that suit your use case but keep the proposed section order.
 
-# {Project Title} (mandatory)
+# Kyma-Watcher (PoC)
 
 > Modify the title and insert the name of your project. Use Heading 1 (H1).
 
-## Overview (mandatory)
+## Overview
 
-> Provide a description of the project's functionality.
->
-> If it is an example README.md, describe what the example illustrates.
+Kyma is the opinionated set of Kubernetes based modular building blocks that includes the necessary capabilities to develop and run enterprise-grade cloud-native applications. This repository is the PoC (proof of Concept) for the `Kyma Watcher` (short: `Watcher`). The Watcher is an operator watching for events (`ADDED`, `DELETED`, `MODIFIED`) of ConfigMaps inside a Kyma-Cluster in specific namespaces. The observed events will then be processed and communicated to {...}.
+TODO
 
 ## Prerequisites
 
-> List the requirements to run the project or example.
+- Go 1.18
+- Running Kubernetes cluster
 
 ## Installation
 
