@@ -8,6 +8,9 @@
 Kyma is the opinionated set of Kubernetes based modular building blocks that includes the necessary capabilities to develop and run enterprise-grade cloud-native applications. This repository is the PoC (proof of Concept) for the `Kyma Watcher` (short: `Watcher`). The Watcher is an operator watching for events (`ADDED`, `DELETED`, `MODIFIED`) of ConfigMaps inside a Kyma-Cluster in specific namespaces. The observed events will then be processed and communicated to {...}.
 TODO
 
+### GitHub Issues
+- [MVP](https://github.com/kyma-project/kyma-operator/issues/33)
+- [PoC](https://github.com/kyma-project/kyma-operator/issues/10)
 ## Prerequisites
 
 - Go 1.18
