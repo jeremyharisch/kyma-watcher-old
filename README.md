@@ -16,13 +16,29 @@ TODO
 - Go 1.18
 - Running Kubernetes cluster
 
-## Installation
+## Watcher
 
-> Explain the steps to install your project. Create an ordered list for each installation task.
->
-> If it is an example README.md, describe how to build, run locally, and deploy the example. Format the example as code blocks and specify the language, highlighting where possible. Explain how you can validate that the example ran successfully. For example, define the expected output or commands to run which check a successful deployment.
->
-> Add subsections (H3) for better readability.
+[watch.Interface.ResultChan()](https://pkg.go.dev/k8s.io/apimachinery/pkg/watch#Interface):
+- Only after-state of resource
+- Fits for lower level problems
+
+[chache.NewINformer()](https://godoc.org/k8s.io/client-go/tools/cache#NewInformer):
+- client-side caching mechanism (simple cache or FIFO)
+- Reducing the number of server calls you'd otherwise need to make
+- Before- and after-state of resource
+- Build on top of watch interface
+- Higher level of abstraction
+- Consists of a watcher, a lister and an in-memory cache
+- SharedInformers share the connection with the API server and other resources between your informers
+- Retries APIrequest if it fails or if pods restarts
+- SharedIndexInformers add an index to your data cache, in case you work with a larger dataset
+
+### Informer Pattern
+[link](https://medium.com/codex/explore-client-go-informer-patterns-4415bb5f1fbd)
+<p>
+    <img src="docs/assets/informer-pattern.png" alt>
+    <em>https://miro.medium.com/max/700/0*-8qgvqK279Tbm-ci</em>
+</p>
 
 ## Usage
 
