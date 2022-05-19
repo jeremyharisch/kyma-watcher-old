@@ -24,7 +24,9 @@ func main() {
 	clientset := createClientset(useKubeconfig)
 
 	// Trigger main watch mechanism
-	go watchForChanges(clientset, namespace, &currentEvent, mutex)
+	go watchForChangesWatcher(clientset, namespace, &currentEvent, mutex)
+
+	go watchForChangesInformer(clientset, namespace)
 
 	// Handle endpoints
 	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {

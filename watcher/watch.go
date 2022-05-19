@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func watchForChanges(clientset *kubernetes.Clientset, namespace string, currentEvent *string, mutex *sync.Mutex) {
+func watchForChangesWatcher(clientset *kubernetes.Clientset, namespace string, currentEvent *string, mutex *sync.Mutex) {
 	for {
 		watcher, err := clientset.CoreV1().ConfigMaps(namespace).Watch(
 			context.TODO(),
