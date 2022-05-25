@@ -2,6 +2,8 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: example-configmap
+  labels:
+    "operator.kyma-project.io/managed-by": "kyma-watch-operator"
 data:
   database: mongodb
   database_uri: mongodb://localhost:27017

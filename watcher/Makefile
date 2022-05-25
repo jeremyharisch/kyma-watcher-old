@@ -36,10 +36,8 @@ docker-build:
 .PHONY: docker-push
 docker-push:
 ifdef IMG_REPO
-	docker tag $(APP_NAME)/mothership $(IMG_NAME)/mothership:$(TAG)
-	docker tag $(APP_NAME)/component $(IMG_NAME)/component:$(TAG)
-	docker push $(IMG_NAME)/mothership:$(TAG)
-	docker push $(IMG_NAME)/component:$(TAG)
+	docker tag $(APP_NAME)/kyma-watcher $(IMG_NAME)/mothership:$(TAG)
+	docker push $(IMG_NAME)/kyma-watcher:$(TAG)
 endif
 
 .PHONY: clean

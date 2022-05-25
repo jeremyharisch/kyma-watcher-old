@@ -24,7 +24,7 @@ TODO
 
 [chache.NewINformer()](https://godoc.org/k8s.io/client-go/tools/cache#NewInformer):
 - client-side caching mechanism (simple cache or FIFO)
-- Reducing the number of server calls you'd otherwise need to make
+- Reducing the number of server calls you'd otherwise need to make; Resync interval leads to a complete set of events being sent to the registered UpdateFunc such such that the controller logic is able to reconcile its state with that of the API server
 - Before- and after-state of resource
 - Build on top of watch interface
 - Higher level of abstraction

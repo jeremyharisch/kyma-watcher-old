@@ -11,7 +11,8 @@ RUN go mod download
 
 # Copy the go source
 COPY main.go main.go
-COPY api/ api/
+# Only needed if CRDs will be introduced
+# COPY api/ api/
 COPY controllers/ controllers/
 
 # Build

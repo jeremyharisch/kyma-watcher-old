@@ -19,8 +19,9 @@ package main
 import (
 	"flag"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"os"
-
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -71,7 +72,16 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "2233f2e2.my.domain",
+		LeaderElectionID:       "893110f8.kyma-project.io",
+		NewCache: cache.BuilderWithOptions(cache.Options{
+			SelectorsByObject: cache.SelectorsByObject{
+				&v1.ConfigMap{}: {
+					Label: labels.SelectorFromSet(
+						labels.Set{"operator.kyma-project.io/managed-by": "kyma-watch-operator"},
+					),
+				},
+			},
+		}),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -81,6 +91,7 @@ func main() {
 	if err = (&controllers.ConfigMapReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Logger: mgr.GetLogger(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ConfigMap")
 		os.Exit(1)
