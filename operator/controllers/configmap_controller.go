@@ -17,17 +17,20 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
+	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -36,6 +39,7 @@ type ConfigMapReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Logger logr.Logger
+	KcpUrl string
 }
 
 //+kubebuilder:rbac:groups=my.domain,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -51,13 +55,19 @@ type ConfigMapReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.2/pkg/reconcile
 func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithName(req.NamespacedName.String())
-	logger.Info("Event which should not appear!!!")
+	// logger := log.FromContext(ctx).WithName(req.NamespacedName.String())
+	// Should do nothing
 	return ctrl.Result{}, nil
 }
 
 func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName()))
+	rb, err := sendRequest(r.KcpUrl)
+	if err != nil {
+		r.Logger.Error(err, "Error occured while sending request")
+		return
+	}
+	r.Logger.Info(fmt.Sprintf("Request to KCP successfull! Response: %s", rb))
 }
 
 func (r *ConfigMapReconciler) UpdateFunc(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
@@ -96,4 +106,25 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			})
 
 	return controllerBuilder.Complete(r)
+}
+
+func sendRequest(url string) (string, error) {
+	postBody, _ := json.Marshal(map[string]string{
+		"xxx": "xxx",
+		"yyy": "yyy",
+	})
+	responseBody := bytes.NewBuffer(postBody)
+	resp, err := http.Post(url, "application/json", responseBody)
+	//Handle Error
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	//Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	sb := string(body)
+	return sb, nil
 }
