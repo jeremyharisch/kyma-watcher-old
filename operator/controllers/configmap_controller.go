@@ -34,6 +34,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+type EventType string
+
+type WatcherEvent struct {
+	SkrClusterID string      `json:"skrClusterID"`
+	Body         interface{} `json:"eventBody"`
+}
+
 // ConfigMapReconciler reconciles a ConfigMap object
 type ConfigMapReconciler struct {
 	client.Client
@@ -61,8 +68,8 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName()))
-	rb, err := sendRequest(r.KcpUrl)
+	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName())) //TODO: clarifiy getName method
+	rb, err := sendRequest(r.KcpUrl, e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -85,17 +92,6 @@ func (r *ConfigMapReconciler) GenericFunc(e event.GenericEvent, q workqueue.Rate
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	//c, err := dynamic.NewForConfig(mgr.GetConfig())
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//informers := dynamicinformer.NewDynamicSharedInformerFactory(c, 0)
-	//err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-	//	informers.Start(ctx.Done())
-	//	return nil
-	//}))
-
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(&v1.ConfigMap{}).
 		Watches(
 			&source.Kind{Type: &v1.ConfigMap{}}, handler.Funcs{
@@ -108,11 +104,12 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return controllerBuilder.Complete(r)
 }
 
-func sendRequest(url string) (string, error) {
-	postBody, _ := json.Marshal(map[string]string{
-		"xxx": "xxx",
-		"yyy": "yyy",
-	})
+func sendRequest(url string, event interface{}) (string, error) {
+	watcherEvent := &WatcherEvent{
+		SkrClusterID: "xyz123",
+		Body:         event,
+	}
+	postBody, _ := json.Marshal(watcherEvent)
 	responseBody := bytes.NewBuffer(postBody)
 	resp, err := http.Post(url, "application/json", responseBody)
 	//Handle Error
