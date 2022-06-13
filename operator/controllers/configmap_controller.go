@@ -24,14 +24,23 @@ import (
 	"github.com/go-logr/logr"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
 	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
+	"time"
 )
 
 type EventType string
@@ -92,14 +101,83 @@ func (r *ConfigMapReconciler) GenericFunc(e event.GenericEvent, q workqueue.Rate
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(&v1.ConfigMap{}).
-		Watches(
-			&source.Kind{Type: &v1.ConfigMap{}}, handler.Funcs{
-				CreateFunc:  r.CreateFunc,
-				UpdateFunc:  r.UpdateFunc,
-				DeleteFunc:  r.DeleteFunc,
-				GenericFunc: r.GenericFunc,
-			})
+	// Create ControllerBuilder
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).For(&v1.ConfigMap{})
+
+	// Create Dynamic InformerFactory
+	c, err := dynamic.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return err
+	}
+	informers := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c, time.Minute*30, "", func(options *metav1.ListOptions) {
+		labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"kyma-watchable": "true"}}
+		options.LabelSelector = labels.Set(labelSelector.MatchLabels).String()
+
+	})
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		informers.Start(ctx.Done())
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	// Create K8s-Client
+	cs, err := kubernetes.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return err
+	}
+
+	// GroupVersions to be watched
+	gvs := []schema.GroupVersion{
+		{
+			Group:   "apiextensions.k8s.io",
+			Version: "v1",
+		},
+		{
+			Group:   "",
+			Version: "v1",
+		},
+	}
+	for _, gv := range gvs {
+		resources, err := cs.ServerResourcesForGroupVersion(gv.String())
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+
+		// resources found
+		if err == nil {
+			dynamicInformerSet := make(map[string]*source.Informer)
+			for _, resource := range resources.APIResources {
+				if strings.Contains(resource.Name, "/") || !strings.Contains(resource.Verbs.String(), "watch") {
+					// Skip no listable resources, i.e. nodes/proxy
+					continue
+				}
+				r.Logger.Info(fmt.Sprintf("Resource `%s` from GroupVersion `%s` will be watched", resource.Name, gv))
+				gvr := gv.WithResource(resource.Name)
+				dynamicInformerSet[gvr.String()] = &source.Informer{Informer: informers.ForResource(gvr).Informer()}
+			}
+
+			for gvr, informer := range dynamicInformerSet {
+				controllerBuilder = controllerBuilder.
+					Watches(informer, &handler.Funcs{
+						CreateFunc:  r.CreateFunc,
+						UpdateFunc:  r.UpdateFunc,
+						DeleteFunc:  r.DeleteFunc,
+						GenericFunc: r.GenericFunc,
+					})
+				r.Logger.Info("initialized dynamic watching", "source", gvr)
+			}
+		}
+	}
+	//
+	//controllerBuilder.Watches(
+	//	&source.Kind{Type: &v1.ConfigMap{}}, handler.Funcs{
+	//		CreateFunc:  r.CreateFunc,
+	//		UpdateFunc:  r.UpdateFunc,
+	//		DeleteFunc:  r.DeleteFunc,
+	//		GenericFunc: r.GenericFunc,
+	//	})
 
 	return controllerBuilder.Complete(r)
 }
