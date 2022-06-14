@@ -46,8 +46,9 @@ import (
 type EventType string
 
 type WatcherEvent struct {
-	SkrClusterID string      `json:"skrClusterID"`
-	Body         interface{} `json:"eventBody"`
+	SkrClusterID string `json:"skrClusterID"`
+	Body         []byte `json:"body"`
+	EventType    string `json:"eventType"`
 }
 
 // ConfigMapReconciler reconciles a ConfigMap object
@@ -77,8 +78,8 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName())) //TODO: clarifiy getName method
-	rb, err := sendRequest(r.KcpUrl, e)
+	r.Logger.Info(fmt.Sprintf("Create Event: %#v", e)) //TODO: clarifiy getName method
+	rb, err := r.sendRequest(r.KcpUrl, e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -170,28 +171,47 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 		}
 	}
-	//
-	//controllerBuilder.Watches(
-	//	&source.Kind{Type: &v1.ConfigMap{}}, handler.Funcs{
-	//		CreateFunc:  r.CreateFunc,
-	//		UpdateFunc:  r.UpdateFunc,
-	//		DeleteFunc:  r.DeleteFunc,
-	//		GenericFunc: r.GenericFunc,
-	//	})
 
 	return controllerBuilder.Complete(r)
 }
 
-func sendRequest(url string, event interface{}) (string, error) {
+func (r *ConfigMapReconciler) sendRequest(url string, newEvent event.CreateEvent) (string, error) {
+	// var eventType string
+	//switch newEvent.(type) {
+	//case event.CreateEvent:
+	//	r.Logger.Info("CreateEvent")
+	//	eventType = "create"
+	//case event.UpdateEvent:
+	//	r.Logger.Info("UpdateEvent")
+	//	eventType = "update"
+	//case event.DeleteEvent:
+	//	r.Logger.Info("DeleteEvent")
+	//	eventType = "delete"
+	//case event.GenericEvent:
+	//	r.Logger.Info("GenericEvent")
+	//	eventType = "generic"
+	//default:
+	//	r.Logger.Info("Default Case - Should not happen")
+	//}
+
+	byteObject, err := json.Marshal(newEvent.Object)
+	if err != nil {
+		r.Logger.Info(fmt.Sprintf("Error Marshaling: %s", err))
+	}
+
 	watcherEvent := &WatcherEvent{
 		SkrClusterID: "xyz123",
-		Body:         event,
+		Body:         byteObject,
+		EventType:    "create",
 	}
 	postBody, _ := json.Marshal(watcherEvent)
+	r.Logger.Info(fmt.Sprintf("PostBody %s", postBody))
+
 	responseBody := bytes.NewBuffer(postBody)
 	resp, err := http.Post(url, "application/json", responseBody)
 	//Handle Error
 	if err != nil {
+		r.Logger.Info(fmt.Sprintf("Error POST %#v", err))
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -201,5 +221,6 @@ func sendRequest(url string, event interface{}) (string, error) {
 		return "", err
 	}
 	sb := string(body)
+	r.Logger.Info(fmt.Sprintf("responseBody: %#v", responseBody))
 	return sb, nil
 }
