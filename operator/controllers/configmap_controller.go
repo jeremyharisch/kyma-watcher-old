@@ -78,25 +78,40 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	r.Logger.Info(fmt.Sprintf("Create Event: %#v", e)) //TODO: clarifiy getName method
-	rb, err := r.sendRequest(r.KcpUrl, e)
+	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName()))
+	_, err := r.sendRequest(r.KcpUrl, e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
 	}
-	r.Logger.Info(fmt.Sprintf("Request to KCP successfull! Response: %s", rb))
+
 }
 
 func (r *ConfigMapReconciler) UpdateFunc(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Update Event: %s", e.ObjectNew.GetName()))
+	_, err := r.sendRequest(r.KcpUrl, e)
+	if err != nil {
+		r.Logger.Error(err, "Error occured while sending request")
+		return
+	}
 }
 
 func (r *ConfigMapReconciler) DeleteFunc(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Delete Event: %s", e.Object.GetName()))
+	_, err := r.sendRequest(r.KcpUrl, e)
+	if err != nil {
+		r.Logger.Error(err, "Error occured while sending request")
+		return
+	}
 }
 
 func (r *ConfigMapReconciler) GenericFunc(e event.GenericEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Generic Event: %s", e.Object.GetName()))
+	_, err := r.sendRequest(r.KcpUrl, e)
+	if err != nil {
+		r.Logger.Error(err, "Error occured while sending request")
+		return
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -175,39 +190,35 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return controllerBuilder.Complete(r)
 }
 
-func (r *ConfigMapReconciler) sendRequest(url string, newEvent event.CreateEvent) (string, error) {
-	// var eventType string
-	//switch newEvent.(type) {
-	//case event.CreateEvent:
-	//	r.Logger.Info("CreateEvent")
-	//	eventType = "create"
-	//case event.UpdateEvent:
-	//	r.Logger.Info("UpdateEvent")
-	//	eventType = "update"
-	//case event.DeleteEvent:
-	//	r.Logger.Info("DeleteEvent")
-	//	eventType = "delete"
-	//case event.GenericEvent:
-	//	r.Logger.Info("GenericEvent")
-	//	eventType = "generic"
-	//default:
-	//	r.Logger.Info("Default Case - Should not happen")
-	//}
+func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (string, error) {
+	var eventType string
+	switch newEvent.(type) {
+	case event.CreateEvent:
+		eventType = "create"
+	case event.UpdateEvent:
+		eventType = "update"
+	case event.DeleteEvent:
+		eventType = "delete"
+	case event.GenericEvent:
+		eventType = "generic"
+	default:
+		r.Logger.Info("Default Case - Should not happen")
+	}
 
-	byteObject, err := json.Marshal(newEvent.Object)
+	byteObject, err := json.Marshal(newEvent.(event.CreateEvent).Object)
 	if err != nil {
 		r.Logger.Info(fmt.Sprintf("Error Marshaling: %s", err))
 	}
 
 	watcherEvent := &WatcherEvent{
-		SkrClusterID: "xyz123",
+		SkrClusterID: "skr-1",
 		Body:         byteObject,
-		EventType:    "create",
+		EventType:    eventType,
 	}
 	postBody, _ := json.Marshal(watcherEvent)
-	r.Logger.Info(fmt.Sprintf("PostBody %s", postBody))
 
 	responseBody := bytes.NewBuffer(postBody)
+	url = fmt.Sprintf("%s/%s", url, eventType)
 	resp, err := http.Post(url, "application/json", responseBody)
 	//Handle Error
 	if err != nil {
@@ -221,6 +232,6 @@ func (r *ConfigMapReconciler) sendRequest(url string, newEvent event.CreateEvent
 		return "", err
 	}
 	sb := string(body)
-	r.Logger.Info(fmt.Sprintf("responseBody: %#v", responseBody))
+	r.Logger.Info("Request to KCP successfull!")
 	return sb, nil
 }
