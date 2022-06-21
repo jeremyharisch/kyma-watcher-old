@@ -45,9 +45,11 @@ import (
 
 type EventType string
 
+const componentLabel = "app.kubernetes.io/instance"
+
 type WatcherEvent struct {
 	SkrClusterID string `json:"skrClusterID"`
-	Body         []byte `json:"body"`
+	Component    string `json:"body"`
 	EventType    string `json:"eventType"`
 }
 
@@ -155,6 +157,7 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Version: "v1",
 		},
 	}
+
 	for _, gv := range gvs {
 		resources, err := cs.ServerResourcesForGroupVersion(gv.String())
 		if client.IgnoreNotFound(err) != nil {
@@ -192,27 +195,27 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (string, error) {
 	var eventType string
+	var component string
 	switch newEvent.(type) {
 	case event.CreateEvent:
 		eventType = "create"
+		component = r.getComponent(newEvent.(event.CreateEvent).Object)
 	case event.UpdateEvent:
 		eventType = "update"
+		component = r.getComponent(newEvent.(event.UpdateEvent).ObjectNew)
 	case event.DeleteEvent:
 		eventType = "delete"
+		component = r.getComponent(newEvent.(event.DeleteEvent).Object)
 	case event.GenericEvent:
 		eventType = "generic"
+		component = r.getComponent(newEvent.(event.GenericEvent).Object)
 	default:
-		r.Logger.Info("Default Case - Should not happen")
-	}
-
-	byteObject, err := json.Marshal(newEvent.(event.CreateEvent).Object)
-	if err != nil {
-		r.Logger.Info(fmt.Sprintf("Error Marshaling: %s", err))
+		r.Logger.Info(fmt.Sprintf("Undefined eventType: %#v", newEvent))
 	}
 
 	watcherEvent := &WatcherEvent{
 		SkrClusterID: "skr-1",
-		Body:         byteObject,
+		Component:    component,
 		EventType:    eventType,
 	}
 	postBody, _ := json.Marshal(watcherEvent)
@@ -234,4 +237,15 @@ func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (str
 	sb := string(body)
 	r.Logger.Info("Request to KCP successfull!")
 	return sb, nil
+}
+
+func (r *ConfigMapReconciler) getComponent(object client.Object) string {
+	labels := object.GetLabels()
+	component, ok := labels[componentLabel]
+	if ok {
+		r.Logger.Info(fmt.Sprintf("Component of new Event: %s", component))
+		return component
+	}
+	r.Logger.Info(fmt.Sprintf("Label `%s` not found", componentLabel))
+	return ""
 }
