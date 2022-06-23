@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/jeremyharisch/kyma-watcher/pkg/contract"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,12 +47,6 @@ import (
 type EventType string
 
 const componentLabel = "app.kubernetes.io/instance"
-
-type WatcherEvent struct {
-	SkrClusterID string `json:"skrClusterID"`
-	Component    string `json:"body"`
-	EventType    string `json:"eventType"`
-}
 
 // ConfigMapReconciler reconciles a ConfigMap object
 type ConfigMapReconciler struct {
@@ -194,34 +189,41 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (string, error) {
-	var eventType string
 	var component string
+	var namespace string
+	var name string
 	switch newEvent.(type) {
 	case event.CreateEvent:
-		eventType = "create"
 		component = r.getComponent(newEvent.(event.CreateEvent).Object)
+		namespace = newEvent.(event.CreateEvent).Object.GetNamespace()
+		name = newEvent.(event.CreateEvent).Object.GetName()
 	case event.UpdateEvent:
-		eventType = "update"
 		component = r.getComponent(newEvent.(event.UpdateEvent).ObjectNew)
+		namespace = newEvent.(event.UpdateEvent).ObjectNew.GetNamespace()
+		name = newEvent.(event.UpdateEvent).ObjectNew.GetName()
 	case event.DeleteEvent:
-		eventType = "delete"
 		component = r.getComponent(newEvent.(event.DeleteEvent).Object)
+		namespace = newEvent.(event.DeleteEvent).Object.GetNamespace()
+		name = newEvent.(event.DeleteEvent).Object.GetName()
 	case event.GenericEvent:
-		eventType = "generic"
 		component = r.getComponent(newEvent.(event.GenericEvent).Object)
+		namespace = newEvent.(event.GenericEvent).Object.GetNamespace()
+		name = newEvent.(event.GenericEvent).Object.GetName()
 	default:
 		r.Logger.Info(fmt.Sprintf("Undefined eventType: %#v", newEvent))
 	}
 
-	watcherEvent := &WatcherEvent{
+	watcherEvent := &contract.WatcherEvent{
 		SkrClusterID: "skr-1",
 		Component:    component,
-		EventType:    eventType,
+		Namespace:    namespace,
+		Name:         name,
 	}
 	postBody, _ := json.Marshal(watcherEvent)
 
 	responseBody := bytes.NewBuffer(postBody)
-	url = fmt.Sprintf("%s/%s", url, eventType)
+	// Not needed anymore, no restful API for different events
+	// url = fmt.Sprintf("%s/%s", url, eventType)
 	resp, err := http.Post(url, "application/json", responseBody)
 	//Handle Error
 	if err != nil {
