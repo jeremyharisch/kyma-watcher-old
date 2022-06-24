@@ -1,4 +1,4 @@
-module github.com/jeremyharisch/kyma-watcher
+module github.com/jeremyharisch/kyma-watcher-deprecated
 
 go 1.18
 
