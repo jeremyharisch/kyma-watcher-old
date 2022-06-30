@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/jeremyharisch/kyma-watcher/controllers"
+	"github.com/jeremyharisch/kyma-watcher/pkg/config"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -53,13 +54,16 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var kcpAdr string
+	var kcpIp, kcpPort, skrClusterId string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8083", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8084", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&kcpAdr, "kcp-adr", "http://localhost:8082/v1/skr/events", "The address the watcher talks to.")
+	flag.StringVar(&kcpIp, "kcp-ip", config.KcpIp, "IP-Adress of KCP")
+	flag.StringVar(&kcpPort, "kcp-port", config.KcpPort, "Exposed event port of KCP")
+	flag.StringVar(&skrClusterId, "cluster-id", config.SkrClusterId, "ID of watched cluster -> Will always use the specified as Cluster ID")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -91,16 +95,18 @@ func main() {
 	}
 
 	if err = (&controllers.ConfigMapReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: mgr.GetLogger(),
-		KcpUrl: kcpAdr,
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Logger:  mgr.GetLogger(),
+		KcpIp:   kcpIp,
+		KcpPort: kcpPort,
+		SkrId:   skrClusterId,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ConfigMap")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
 
+	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)

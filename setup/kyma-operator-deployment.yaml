@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyma-operator
+spec:
+  selector:
+    matchLabels:
+      app: kyma-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kyma-operator
+    spec:
+      containers:
+      - name: kyma-operator
+        image: jaythedevil666/kyma-controller:latest
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: "8"
+            memory: 5Gi
+          requests:
+            cpu: "6"
+            memory: 4Gi

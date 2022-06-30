@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/jeremyharisch/kyma-watcher/pkg/config"
 	"github.com/jeremyharisch/kyma-watcher/pkg/contract"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
@@ -51,9 +52,11 @@ const componentLabel = "app.kubernetes.io/instance"
 // ConfigMapReconciler reconciles a ConfigMap object
 type ConfigMapReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Logger logr.Logger
-	KcpUrl string
+	Scheme  *runtime.Scheme
+	Logger  logr.Logger
+	KcpIp   string
+	KcpPort string
+	SkrId   string
 }
 
 //+kubebuilder:rbac:groups=my.domain,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -76,7 +79,7 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Create Event: %s", e.Object.GetName()))
-	_, err := r.sendRequest(r.KcpUrl, e)
+	_, err := r.sendRequest(e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -86,7 +89,7 @@ func (r *ConfigMapReconciler) CreateFunc(e event.CreateEvent, q workqueue.RateLi
 
 func (r *ConfigMapReconciler) UpdateFunc(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Update Event: %s", e.ObjectNew.GetName()))
-	_, err := r.sendRequest(r.KcpUrl, e)
+	_, err := r.sendRequest(e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -95,7 +98,7 @@ func (r *ConfigMapReconciler) UpdateFunc(e event.UpdateEvent, q workqueue.RateLi
 
 func (r *ConfigMapReconciler) DeleteFunc(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Delete Event: %s", e.Object.GetName()))
-	_, err := r.sendRequest(r.KcpUrl, e)
+	_, err := r.sendRequest(e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -104,7 +107,7 @@ func (r *ConfigMapReconciler) DeleteFunc(e event.DeleteEvent, q workqueue.RateLi
 
 func (r *ConfigMapReconciler) GenericFunc(e event.GenericEvent, q workqueue.RateLimitingInterface) {
 	r.Logger.Info(fmt.Sprintf("Generic Event: %s", e.Object.GetName()))
-	_, err := r.sendRequest(r.KcpUrl, e)
+	_, err := r.sendRequest(e)
 	if err != nil {
 		r.Logger.Error(err, "Error occured while sending request")
 		return
@@ -188,7 +191,7 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return controllerBuilder.Complete(r)
 }
 
-func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (string, error) {
+func (r *ConfigMapReconciler) sendRequest(newEvent interface{}) (string, error) {
 	var component string
 	var namespace string
 	var name string
@@ -214,16 +217,14 @@ func (r *ConfigMapReconciler) sendRequest(url string, newEvent interface{}) (str
 	}
 
 	watcherEvent := &contract.WatcherEvent{
-		SkrClusterID: "skr-1",
-		Component:    component,
+		SkrClusterID: r.SkrId,
 		Namespace:    namespace,
 		Name:         name,
 	}
 	postBody, _ := json.Marshal(watcherEvent)
 
 	responseBody := bytes.NewBuffer(postBody)
-	// Not needed anymore, no restful API for different events
-	// url = fmt.Sprintf("%s/%s", url, eventType)
+	url := fmt.Sprintf("%s:%s/%s/%s/%s", r.KcpIp, r.KcpPort, config.ContractVersion, component, config.EventEndpoint)
 	resp, err := http.Post(url, "application/json", responseBody)
 	//Handle Error
 	if err != nil {

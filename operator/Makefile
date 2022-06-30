@@ -1,8 +1,6 @@
 
-APP_NAME = kyma-watcher
-IMG_REPO := docker.io/jaythedevil666#$(DOCKER_REPOSITORY)#$(DOCKER_PUSH_DIRECTORY)
-IMG_NAME := $(IMG_REPO)/$(APP_NAME)
-TAG := $(DOCKER_TAG)
+# Image URL to use all building/pushing image targets
+IMG ?= jaythedevil666/kyma-watcher:latest
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
@@ -73,15 +71,14 @@ run: manifests generate fmt vet ## Run kyma-watcher from your host.
 	go run ./main.go
 
 .PHONY: docker-build
-docker-build: ## Builds docker image for kyma-watcher; Pls provide 'DOCKER_TAG' and 'DOCKER_REPOSITORY'; I.e. make docker-build DOCKER_TAG="latest" DOCKER_REPOSITORY="docker.io/example-repo"
-	docker build -t $(IMG_NAME):latest -f Dockerfile .
+.PHONY: docker-build
+docker-build: #test ## Build docker image with the manager.
+	docker build -t ${IMG} .
 
 .PHONY: docker-push
-docker-push: ## Pushes docker image for kyma-watcher; Pls provide 'DOCKER_TAG' and 'DOCKER_REPOSITORY'; I.e. make docker-push DOCKER_TAG="latest" DOCKER_REPOSITORY="docker.io/example-repo"
-ifdef DOCKER_REPOSITORY
-	docker tag $(IMG_NAME) $(IMG_NAME):$(TAG)
-	docker push $(IMG_NAME):$(TAG)
-endif
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
+
 
 .PHONY: clean
 clean: ## Deletes built binaries
@@ -102,8 +99,8 @@ uninstall: manifests kustomize ## NOT SUPPORTED - Uninstall CRDs from the K8s cl
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## NOT SUPPORTED - Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image kyma-watcher=${IMG_NAME}
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image kyma-watcher=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy
