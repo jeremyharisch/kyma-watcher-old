@@ -47,8 +47,6 @@ import (
 
 type EventType string
 
-const componentLabel = "app.kubernetes.io/instance"
-
 // ConfigMapReconciler reconciles a ConfigMap object
 type ConfigMapReconciler struct {
 	client.Client
@@ -59,9 +57,7 @@ type ConfigMapReconciler struct {
 	SkrId   string
 }
 
-//+kubebuilder:rbac:groups=my.domain,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=my.domain,resources=configmaps/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=my.domain,resources=configmaps/finalizers,verbs=update
+//+kubebuilder:rbac:groups="*",resources="*",verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -244,11 +240,11 @@ func (r *ConfigMapReconciler) sendRequest(newEvent interface{}) (string, error) 
 
 func (r *ConfigMapReconciler) getComponent(object client.Object) string {
 	labels := object.GetLabels()
-	component, ok := labels[componentLabel]
+	component, ok := labels[config.ComponentLabel]
 	if ok {
 		r.Logger.Info(fmt.Sprintf("Component of new Event: %s", component))
 		return component
 	}
-	r.Logger.Info(fmt.Sprintf("Label `%s` not found", componentLabel))
+	r.Logger.Info(fmt.Sprintf("Label `%s` not found", config.ComponentLabel))
 	return ""
 }

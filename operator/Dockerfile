@@ -14,6 +14,7 @@ COPY main.go main.go
 # Only needed if CRDs will be introduced
 # COPY api/ api/
 COPY controllers/ controllers/
+COPY pkg/ pkg/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go

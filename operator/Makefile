@@ -99,7 +99,7 @@ uninstall: manifests kustomize ## NOT SUPPORTED - Uninstall CRDs from the K8s cl
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: docker-build docker-push manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image kyma-watcher=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 

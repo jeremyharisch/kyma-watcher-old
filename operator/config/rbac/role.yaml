@@ -6,28 +6,10 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - my.domain
+  - '*'
   resources:
-  - configmaps
+  - '*'
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - my.domain
-  resources:
-  - configmaps/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - my.domain
-  resources:
-  - configmaps/status
-  verbs:
-  - get
-  - patch
-  - update
